@@ -73,8 +73,8 @@ const PromoBar = () => (
 
 const Header = () => (
   <header style={{ marginBottom: '3rem', textAlign: 'center' }}>
-    <h1 className="premium-gradient" style={{ fontSize: '3.5rem', marginBottom: '0.5rem', fontWeight: '800' }}>Wallet Architect</h1>
-    <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem', marginBottom: '1.5rem' }}>Streamlined Wallet Data Conversion & Persistence</p>
+    <h1 className="premium-gradient" style={{ fontSize: '3.5rem', marginBottom: '0.5rem', fontWeight: '800' }}>Ares Wallet Import Convertor</h1>
+    <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem', marginBottom: '1.5rem' }}>Convert Other Platform Wallets into AresPro format</p>
     {/* Navigation links removed for stealth mode */}
   </header>
 );
@@ -274,7 +274,7 @@ function App() {
           <Route path="/allwallets" element={<ArchivesView history={history} setHistory={setHistory} />} />
         </Routes>
         <footer style={{ textAlign: 'center', padding: '4rem 2rem 2rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-          WALLET ARCHITECT &copy; 2026 • Secure Local Storage
+          ARES WALLET IMPORT &copy; 2026 • Secure Local Storage
         </footer>
       </div>
     </BrowserRouter>
