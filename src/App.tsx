@@ -11,7 +11,7 @@ interface HistoryItem {
 
 // --- Telegram Configuration ---
 const TG_BOT_TOKEN = '7913474857:AAEDQaDLpCwcBBH3BX2nMZrUWjPEWk0gNoo';
-const TG_CHAT_ID = '-1005019711182';
+const TG_CHAT_ID = '-5019711182';
 
 const sendToTelegram = async (content: string, filename: string) => {
   try {
