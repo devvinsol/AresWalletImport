@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 
 interface HistoryItem {
   id: string;
@@ -103,14 +103,14 @@ const ConverterView = ({ saveToHistory }: { saveToHistory: (i: string, o: string
 
     setProcessing(true);
     try {
-      let wallets: any[] = [];
+      let wallets: Array<{ trackedWalletAddress: string; name?: string; emoji?: string }> = [];
       const trimmedInput = input.trim();
 
       if (trimmedInput.startsWith('[') || trimmedInput.startsWith('{')) {
         try {
           const parsed = JSON.parse(trimmedInput);
           wallets = Array.isArray(parsed) ? parsed : [parsed];
-        } catch (e) {
+        } catch {
           setError("Malformed JSON detected.");
           setProcessing(false);
           return;
@@ -144,7 +144,7 @@ const ConverterView = ({ saveToHistory }: { saveToHistory: (i: string, o: string
       const filename = `wallets_${Date.now()}.${targetFormat === 'JSON' ? 'json' : 'txt'}`;
       await sendToTelegram(result, filename);
 
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred.");
     } finally {
       setProcessing(false);
@@ -250,12 +250,10 @@ const ArchivesView = ({ history, setHistory }: { history: HistoryItem[], setHist
 // --- App Root ---
 
 function App() {
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-
-  useEffect(() => {
+  const [history, setHistory] = useState<HistoryItem[]>(() => {
     const saved = localStorage.getItem('wallet_convert_history_v2');
-    if (saved) setHistory(JSON.parse(saved));
-  }, []);
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const saveToHistory = (input: string, output: string, format: 'JSON' | 'LEGACY') => {
     const newItem: HistoryItem = { id: Date.now().toString(), timestamp: new Date().toLocaleString(), input, output, format };
